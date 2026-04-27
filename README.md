@@ -25,7 +25,7 @@ This project simulates a secure authentication system with modern UI and securit
 
 ## 📸 Screenshot
 
-(img.png)
+![Alt Text](img.png)
 
 ---
 
