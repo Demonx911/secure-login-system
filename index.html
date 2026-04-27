@@ -1,1 +1,1724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Secure Login System</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+  :root {
+    --bg: #0a0f0d;
+    --bg-elevated: #111a16;
+    --bg-card: #14201a;
+    --fg: #e8f0ec;
+    --fg-muted: #7a9488;
+    --accent: #00e68a;
+    --accent-dim: #00b36b;
+    --accent-glow: rgba(0, 230, 138, 0.15);
+    --danger: #ff4d6a;
+    --danger-dim: rgba(255, 77, 106, 0.12);
+    --warning: #ffb84d;
+    --border: #1e3028;
+    --border-focus: #00e68a;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 8px 32px rgba(0,0,0,0.4);
+    --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  html { font-size: 16px; }
+
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* Animated grid background */
+  .bg-grid {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(0,230,138,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,230,138,0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+    animation: gridShift 20s linear infinite;
+  }
+  @keyframes gridShift {
+    0% { transform: translate(0, 0); }
+    100% { transform: translate(60px, 60px); }
+  }
+
+  /* Floating orbs */
+  .orb {
+    position: fixed; border-radius: 50%; filter: blur(80px); pointer-events: none; z-index: 0;
+    animation: orbFloat 12s ease-in-out infinite alternate;
+  }
+  .orb-1 { width: 400px; height: 400px; background: rgba(0,230,138,0.06); top: -100px; right: -100px; }
+  .orb-2 { width: 300px; height: 300px; background: rgba(0,180,107,0.05); bottom: -50px; left: -50px; animation-delay: -6s; }
+  .orb-3 { width: 200px; height: 200px; background: rgba(0,230,138,0.04); top: 50%; left: 50%; animation-delay: -3s; }
+  @keyframes orbFloat {
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(30px, -40px) scale(1.1); }
+  }
+
+  /* Scanline effect */
+  .scanline {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 2px, rgba(0,230,138,0.008) 2px, rgba(0,230,138,0.008) 4px
+    );
+  }
+
+  /* Layout */
+  .app-container {
+    position: relative; z-index: 1;
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+
+  /* View system */
+  .view { display: none; width: 100%; max-width: 480px; animation: viewIn 0.5s ease; }
+  .view.active { display: block; }
+  @keyframes viewIn {
+    from { opacity: 0; transform: translateY(24px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* Card */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 40px 36px;
+    box-shadow: var(--shadow);
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.6;
+  }
+
+  /* Logo area */
+  .logo-area {
+    text-align: center; margin-bottom: 32px;
+  }
+  .logo-icon {
+    width: 56px; height: 56px; border-radius: 16px;
+    background: linear-gradient(135deg, var(--accent-dim), #00cc7a);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 24px; color: var(--bg); margin-bottom: 16px;
+    box-shadow: 0 4px 20px rgba(0,230,138,0.25);
+    animation: logoPulse 3s ease-in-out infinite;
+  }
+  @keyframes logoPulse {
+    0%, 100% { box-shadow: 0 4px 20px rgba(0,230,138,0.25); }
+    50% { box-shadow: 0 4px 30px rgba(0,230,138,0.4); }
+  }
+  .logo-title {
+    font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em;
+    color: var(--fg);
+  }
+  .logo-subtitle {
+    font-size: 0.85rem; color: var(--fg-muted); margin-top: 4px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Security badges */
+  .security-badges {
+    display: flex; gap: 8px; justify-content: center; margin-top: 16px; flex-wrap: wrap;
+  }
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 20px; font-size: 0.7rem;
+    font-family: 'JetBrains Mono', monospace; font-weight: 500;
+    border: 1px solid var(--border); background: var(--bg-elevated);
+    color: var(--fg-muted);
+  }
+  .badge i { font-size: 0.65rem; }
+  .badge.green { color: var(--accent); border-color: rgba(0,230,138,0.2); }
+
+  /* Form elements */
+  .form-group { margin-bottom: 20px; position: relative; }
+  .form-label {
+    display: block; font-size: 0.8rem; font-weight: 500;
+    color: var(--fg-muted); margin-bottom: 8px; letter-spacing: 0.03em;
+  }
+  .input-wrap {
+    position: relative; display: flex; align-items: center;
+  }
+  .input-wrap i.field-icon {
+    position: absolute; left: 14px; font-size: 0.85rem; color: var(--fg-muted);
+    transition: color var(--transition); pointer-events: none; z-index: 2;
+  }
+  .input-wrap input {
+    width: 100%; padding: 12px 14px 12px 42px;
+    background: var(--bg-elevated); border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--fg);
+    font-family: 'Space Grotesk', sans-serif; font-size: 0.9rem;
+    transition: all var(--transition); outline: none;
+  }
+  .input-wrap input:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+  .input-wrap input:focus ~ i.field-icon,
+  .input-wrap input:focus + i.field-icon { color: var(--accent); }
+  .input-wrap input::placeholder { color: rgba(122,148,136,0.5); }
+
+  .toggle-pw {
+    position: absolute; right: 14px; background: none; border: none;
+    color: var(--fg-muted); cursor: pointer; font-size: 0.85rem;
+    padding: 4px; transition: color var(--transition); z-index: 2;
+  }
+  .toggle-pw:hover { color: var(--accent); }
+
+  /* Password strength */
+  .pw-strength { margin-top: 8px; display: none; }
+  .pw-strength.visible { display: block; }
+  .pw-strength-bar {
+    height: 3px; border-radius: 3px; background: var(--border);
+    overflow: hidden; margin-bottom: 6px;
+  }
+  .pw-strength-fill {
+    height: 100%; width: 0; border-radius: 3px;
+    transition: all 0.4s ease;
+  }
+  .pw-strength-label {
+    font-size: 0.72rem; font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Validation messages */
+  .field-error {
+    font-size: 0.75rem; color: var(--danger); margin-top: 6px;
+    display: none; align-items: center; gap: 4px;
+  }
+  .field-error.visible { display: flex; }
+  .field-error i { font-size: 0.7rem; }
+
+  .input-wrap input.error { border-color: var(--danger); }
+  .input-wrap input.valid { border-color: var(--accent); }
+
+  /* Checkbox */
+  .checkbox-wrap {
+    display: flex; align-items: center; gap: 10px; cursor: pointer;
+    user-select: none;
+  }
+  .checkbox-wrap input { display: none; }
+  .check-box {
+    width: 18px; height: 18px; border-radius: 5px;
+    border: 1.5px solid var(--border); background: var(--bg-elevated);
+    display: flex; align-items: center; justify-content: center;
+    transition: all var(--transition); flex-shrink: 0;
+  }
+  .check-box i { font-size: 0.6rem; color: var(--bg); opacity: 0; transition: opacity 0.2s; }
+  .checkbox-wrap input:checked + .check-box {
+    background: var(--accent); border-color: var(--accent);
+  }
+  .checkbox-wrap input:checked + .check-box i { opacity: 1; }
+  .checkbox-label { font-size: 0.82rem; color: var(--fg-muted); }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 13px 24px; border-radius: var(--radius-sm);
+    font-family: 'Space Grotesk', sans-serif; font-size: 0.9rem; font-weight: 600;
+    border: none; cursor: pointer; transition: all var(--transition);
+    position: relative; overflow: hidden; letter-spacing: 0.01em;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary {
+    width: 100%; background: linear-gradient(135deg, var(--accent-dim), #00cc7a);
+    color: var(--bg); box-shadow: 0 4px 16px rgba(0,230,138,0.25);
+  }
+  .btn-primary:hover {
+    box-shadow: 0 6px 24px rgba(0,230,138,0.35);
+    transform: translateY(-1px);
+  }
+  .btn-primary:active { transform: translateY(0) scale(0.98); }
+  .btn-primary:disabled {
+    opacity: 0.5; cursor: not-allowed; transform: none !important;
+    box-shadow: none !important;
+  }
+  .btn-secondary {
+    background: var(--bg-elevated); color: var(--fg); border: 1.5px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--fg-muted); }
+  .btn-ghost {
+    background: none; border: none; color: var(--accent);
+    font-weight: 500; padding: 8px 0;
+  }
+  .btn-ghost:hover { color: #33ffaa; }
+  .btn-danger {
+    background: var(--danger-dim); color: var(--danger); border: 1px solid rgba(255,77,106,0.2);
+  }
+  .btn-danger:hover { background: rgba(255,77,106,0.2); }
+
+  /* Spinner */
+  .spinner {
+    width: 18px; height: 18px; border: 2px solid transparent;
+    border-top-color: currentColor; border-radius: 50%;
+    animation: spin 0.6s linear infinite; display: none;
+  }
+  .btn.loading .spinner { display: block; }
+  .btn.loading .btn-text { opacity: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Divider */
+  .divider {
+    display: flex; align-items: center; gap: 16px; margin: 24px 0;
+    color: var(--fg-muted); font-size: 0.78rem;
+  }
+  .divider::before, .divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  /* Links */
+  .link-row {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 24px;
+  }
+
+  /* 2FA section */
+  .tfa-setup { text-align: center; }
+  .tfa-code-inputs {
+    display: flex; gap: 8px; justify-content: center; margin: 24px 0;
+  }
+  .tfa-code-inputs input {
+    width: 48px; height: 56px; text-align: center;
+    font-family: 'JetBrains Mono', monospace; font-size: 1.3rem; font-weight: 600;
+    background: var(--bg-elevated); border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--fg);
+    outline: none; transition: all var(--transition);
+  }
+  .tfa-code-inputs input:focus {
+    border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+  .tfa-qr {
+    width: 160px; height: 160px; margin: 20px auto;
+    background: white; border-radius: var(--radius-sm); padding: 12px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tfa-qr canvas { width: 100% !important; height: 100% !important; }
+  .tfa-secret {
+    display: inline-block; padding: 8px 16px; margin: 12px 0;
+    background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    font-family: 'JetBrains Mono', monospace; font-size: 0.82rem;
+    color: var(--accent); letter-spacing: 0.08em; user-select: all;
+  }
+
+  /* Dashboard */
+  .dashboard { max-width: 720px; }
+  .dash-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 32px; flex-wrap: wrap; gap: 16px;
+  }
+  .dash-user {
+    display: flex; align-items: center; gap: 14px;
+  }
+  .dash-avatar {
+    width: 48px; height: 48px; border-radius: 14px;
+    background: linear-gradient(135deg, var(--accent-dim), #00cc7a);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 1.1rem; color: var(--bg);
+  }
+  .dash-name { font-size: 1.1rem; font-weight: 600; }
+  .dash-email { font-size: 0.8rem; color: var(--fg-muted); }
+
+  .dash-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;
+  }
+  @media (max-width: 520px) { .dash-grid { grid-template-columns: 1fr; } }
+
+  .stat-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px;
+    transition: all var(--transition);
+  }
+  .stat-card:hover { border-color: rgba(0,230,138,0.3); transform: translateY(-2px); }
+  .stat-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.85rem; margin-bottom: 14px;
+  }
+  .stat-icon.green { background: var(--accent-glow); color: var(--accent); }
+  .stat-icon.yellow { background: rgba(255,184,77,0.12); color: var(--warning); }
+  .stat-icon.red { background: var(--danger-dim); color: var(--danger); }
+  .stat-value {
+    font-size: 1.5rem; font-weight: 700; margin-bottom: 4px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .stat-label { font-size: 0.78rem; color: var(--fg-muted); }
+
+  .security-panel {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 24px; margin-bottom: 16px;
+  }
+  .security-panel h3 {
+    font-size: 0.95rem; font-weight: 600; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .security-panel h3 i { color: var(--accent); }
+  .security-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 0; border-bottom: 1px solid var(--border);
+  }
+  .security-item:last-child { border-bottom: none; }
+  .security-item-left { display: flex; align-items: center; gap: 10px; }
+  .security-item-left i { color: var(--fg-muted); font-size: 0.85rem; width: 20px; text-align: center; }
+  .security-item-label { font-size: 0.85rem; }
+  .security-item-value {
+    font-size: 0.8rem; font-family: 'JetBrains Mono', monospace;
+    color: var(--fg-muted);
+  }
+  .security-item-value.active { color: var(--accent); }
+  .security-item-value.inactive { color: var(--danger); }
+
+  /* Toggle switch */
+  .toggle-switch {
+    width: 42px; height: 24px; border-radius: 12px;
+    background: var(--border); position: relative; cursor: pointer;
+    transition: background var(--transition); flex-shrink: 0;
+  }
+  .toggle-switch.active { background: var(--accent); }
+  .toggle-switch::after {
+    content: ''; position: absolute; top: 3px; left: 3px;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: white; transition: transform var(--transition);
+  }
+  .toggle-switch.active::after { transform: translateX(18px); }
+
+  /* Toast */
+  .toast-container {
+    position: fixed; top: 20px; right: 20px; z-index: 1000;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .toast {
+    padding: 14px 20px; border-radius: var(--radius-sm);
+    font-size: 0.85rem; display: flex; align-items: center; gap: 10px;
+    animation: toastIn 0.4s ease, toastOut 0.4s ease 3s forwards;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3); min-width: 280px; max-width: 400px;
+  }
+  .toast.success { background: #0d2b1a; border: 1px solid rgba(0,230,138,0.3); color: var(--accent); }
+  .toast.error { background: #2b0d16; border: 1px solid rgba(255,77,106,0.3); color: var(--danger); }
+  .toast.info { background: #0d1a2b; border: 1px solid rgba(77,166,255,0.3); color: #4da6ff; }
+  .toast.warning { background: #2b1f0d; border: 1px solid rgba(255,184,77,0.3); color: var(--warning); }
+  @keyframes toastIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes toastOut { to { opacity: 0; transform: translateX(40px); } }
+
+  /* Session timer */
+  .session-timer {
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;
+    color: var(--fg-muted); background: var(--bg-elevated);
+    padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border);
+  }
+  .session-timer i { color: var(--accent); }
+  .session-timer.warning { color: var(--warning); border-color: rgba(255,184,77,0.3); }
+  .session-timer.warning i { color: var(--warning); }
+  .session-timer.danger { color: var(--danger); border-color: rgba(255,77,106,0.3); }
+  .session-timer.danger i { color: var(--danger); animation: blink 1s infinite; }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  /* Activity log */
+  .activity-log { max-height: 200px; overflow-y: auto; }
+  .activity-log::-webkit-scrollbar { width: 4px; }
+  .activity-log::-webkit-scrollbar-track { background: transparent; }
+  .activity-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .log-entry {
+    display: flex; align-items: flex-start; gap: 10px; padding: 10px 0;
+    border-bottom: 1px solid var(--border); font-size: 0.8rem;
+  }
+  .log-entry:last-child { border-bottom: none; }
+  .log-dot {
+    width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0;
+  }
+  .log-dot.green { background: var(--accent); }
+  .log-dot.red { background: var(--danger); }
+  .log-dot.yellow { background: var(--warning); }
+  .log-text { color: var(--fg-muted); }
+  .log-text strong { color: var(--fg); font-weight: 500; }
+  .log-time { margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--fg-muted); white-space: nowrap; }
+
+  /* Responsive */
+  @media (max-width: 520px) {
+    .card { padding: 28px 20px; }
+    .tfa-code-inputs input { width: 40px; height: 48px; font-size: 1.1rem; }
+    .dash-header { flex-direction: column; align-items: flex-start; }
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+
+  /* Hash visualization */
+  .hash-display {
+    background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 10px 14px; font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem; color: var(--fg-muted); word-break: break-all;
+    margin-top: 8px; display: none; line-height: 1.5;
+  }
+  .hash-display.visible { display: block; animation: viewIn 0.3s ease; }
+  .hash-display span { color: var(--accent); }
+
+  /* Sanitization indicator */
+  .sanitized-note {
+    font-size: 0.72rem; color: var(--warning); margin-top: 4px;
+    display: none; align-items: center; gap: 4px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .sanitized-note.visible { display: flex; }
+</style>
+</head>
+<body>
+  <!-- Background layers -->
+  <div class="bg-grid"></div>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+  <div class="scanline"></div>
+
+  <!-- Toast container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <div class="app-container">
+
+    <!-- LOGIN VIEW -->
+    <div class="view active" id="loginView">
+      <div class="card">
+        <div class="logo-area">
+          <div class="logo-icon"><i class="fas fa-shield-halved"></i></div>
+          <div class="logo-title">Secure Login</div>
+          <div class="logo-subtitle">SHA-256 + bcrypt simulation</div>
+          <div class="security-badges">
+            <span class="badge green"><i class="fas fa-lock"></i> Encrypted</span>
+            <span class="badge green"><i class="fas fa-shield-virus"></i> SQL Safe</span>
+            <span class="badge"><i class="fas fa-clock"></i> Session</span>
+          </div>
+        </div>
+
+        <form id="loginForm" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="loginEmail">Email Address</label>
+            <div class="input-wrap">
+              <i class="fas fa-envelope field-icon"></i>
+              <input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="email" required>
+            </div>
+            <div class="field-error" id="loginEmailError"><i class="fas fa-exclamation-circle"></i> <span></span></div>
+            <div class="sanitized-note" id="loginEmailSanitized"><i class="fas fa-triangle-exclamation"></i> <span></span></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="loginPassword">Password</label>
+            <div class="input-wrap">
+              <i class="fas fa-key field-icon"></i>
+              <input type="password" id="loginPassword" placeholder="Enter your password" autocomplete="current-password" required>
+              <button type="button" class="toggle-pw" data-target="loginPassword" aria-label="Toggle password visibility"><i class="fas fa-eye"></i></button>
+            </div>
+            <div class="field-error" id="loginPasswordError"><i class="fas fa-exclamation-circle"></i> <span></span></div>
+          </div>
+
+          <div class="link-row">
+            <label class="checkbox-wrap">
+              <input type="checkbox" id="rememberMe">
+              <span class="check-box"><i class="fas fa-check"></i></span>
+              <span class="checkbox-label">Remember me</span>
+            </label>
+          </div>
+
+          <button type="submit" class="btn btn-primary" id="loginBtn">
+            <span class="spinner"></span>
+            <span class="btn-text">Sign In</span>
+          </button>
+        </form>
+
+        <div class="divider">or</div>
+
+        <p style="text-align:center; font-size:0.85rem; color:var(--fg-muted);">
+          Don't have an account?
+          <button class="btn-ghost" onclick="showView('registerView')">Create Account</button>
+        </p>
+      </div>
+    </div>
+
+    <!-- REGISTER VIEW -->
+    <div class="view" id="registerView">
+      <div class="card">
+        <div class="logo-area">
+          <div class="logo-icon"><i class="fas fa-user-plus"></i></div>
+          <div class="logo-title">Create Account</div>
+          <div class="logo-subtitle">Secure registration with hashing</div>
+        </div>
+
+        <form id="registerForm" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="regName">Full Name</label>
+            <div class="input-wrap">
+              <i class="fas fa-user field-icon"></i>
+              <input type="text" id="regName" placeholder="John Doe" autocomplete="name" required>
+            </div>
+            <div class="field-error" id="regNameError"><i class="fas fa-exclamation-circle"></i> <span></span></div>
+            <div class="sanitized-note" id="regNameSanitized"><i class="fas fa-triangle-exclamation"></i> <span></span></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="regEmail">Email Address</label>
+            <div class="input-wrap">
+              <i class="fas fa-envelope field-icon"></i>
+              <input type="email" id="regEmail" placeholder="you@example.com" autocomplete="email" required>
+            </div>
+            <div class="field-error" id="regEmailError"><i class="fas fa-exclamation-circle"></i> <span></span></div>
+            <div class="sanitized-note" id="regEmailSanitized"><i class="fas fa-triangle-exclamation"></i> <span></span></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="regPassword">Password</label>
+            <div class="input-wrap">
+              <i class="fas fa-key field-icon"></i>
+              <input type="password" id="regPassword" placeholder="Min 8 characters" autocomplete="new-password" required>
+              <button type="button" class="toggle-pw" data-target="regPassword" aria-label="Toggle password visibility"><i class="fas fa-eye"></i></button>
+            </div>
+            <div class="pw-strength" id="pwStrength">
+              <div class="pw-strength-bar"><div class="pw-strength-fill" id="pwStrengthFill"></div></div>
+              <div class="pw-strength-label" id="pwStrengthLabel"></div>
+            </div>
+            <div class="field-error" id="regPasswordError"><i class="fas fa-exclamation-circle"></i> <span></span></div>
+            <div class="hash-display" id="hashDisplay"></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="regConfirm">Confirm Password</label>
+            <div class="input-wrap">
+              <i class="fas fa-lock field-icon"></i>
+              <input type="password" id="regConfirm" placeholder="Re-enter password" autocomplete="new-password" required>
+              <button type="button" class="toggle-pw" data-target="regConfirm" aria-label="Toggle password visibility"><i class="fas fa-eye"></i></button>
+            </div>
+            <div class="field-error" id="regConfirmError"><i class="fas fa-exclamation-circle"></i> <span></span></div>
+          </div>
+
+          <div class="form-group">
+            <label class="checkbox-wrap">
+              <input type="checkbox" id="enable2FA">
+              <span class="check-box"><i class="fas fa-check"></i></span>
+              <span class="checkbox-label">Enable Two-Factor Authentication (2FA)</span>
+            </label>
+          </div>
+
+          <button type="submit" class="btn btn-primary" id="registerBtn" style="margin-top:8px;">
+            <span class="spinner"></span>
+            <span class="btn-text">Create Secure Account</span>
+          </button>
+        </form>
+
+        <div class="divider">or</div>
+
+        <p style="text-align:center; font-size:0.85rem; color:var(--fg-muted);">
+          Already have an account?
+          <button class="btn-ghost" onclick="showView('loginView')">Sign In</button>
+        </p>
+      </div>
+    </div>
+
+    <!-- 2FA SETUP VIEW -->
+    <div class="view" id="tfaSetupView">
+      <div class="card tfa-setup">
+        <div class="logo-area">
+          <div class="logo-icon"><i class="fas fa-mobile-screen"></i></div>
+          <div class="logo-title">Setup 2FA</div>
+          <div class="logo-subtitle">Scan QR code with your authenticator app</div>
+        </div>
+
+        <div class="tfa-qr" id="tfaQr">
+          <canvas id="qrCanvas" width="136" height="136"></canvas>
+        </div>
+
+        <p style="font-size:0.8rem; color:var(--fg-muted); margin-bottom:4px;">
+          Can't scan? Enter this secret key manually:
+        </p>
+        <div class="tfa-secret" id="tfaSecret">JBSW Y3DP EHPK 3PXP</div>
+
+        <p style="font-size:0.85rem; color:var(--fg); margin:20px 0 8px;">
+          Enter the 6-digit code to verify:
+        </p>
+
+        <div class="tfa-code-inputs" id="tfaSetupInputs">
+          <input type="text" maxlength="1" inputmode="numeric" data-index="0" aria-label="Digit 1">
+          <input type="text" maxlength="1" inputmode="numeric" data-index="1" aria-label="Digit 2">
+          <input type="text" maxlength="1" inputmode="numeric" data-index="2" aria-label="Digit 3">
+          <input type="text" maxlength="1" inputmode="numeric" data-index="3" aria-label="Digit 4">
+          <input type="text" maxlength="1" inputmode="numeric" data-index="4" aria-label="Digit 5">
+          <input type="text" maxlength="1" inputmode="numeric" data-index="5" aria-label="Digit 6">
+        </div>
+
+        <button class="btn btn-primary" id="tfaSetupBtn" style="margin-top:8px;">
+          <span class="spinner"></span>
+          <span class="btn-text">Verify & Complete Setup</span>
+        </button>
+
+        <p style="font-size:0.75rem; color:var(--fg-muted); margin-top:16px;">
+          Demo code: <span style="color:var(--accent); font-family:'JetBrains Mono',monospace;" id="demoCode">483921</span>
+        </p>
+      </div>
+    </div>
+
+    <!-- 2FA VERIFY VIEW -->
+    <div class="view" id="tfaVerifyView">
+      <div class="card tfa-setup">
+        <div class="logo-area">
+          <div class="logo-icon"><i class="fas fa-fingerprint"></i></div>
+          <div class="logo-title">Two-Factor Auth</div>
+          <div class="logo-subtitle">Enter your authentication code</div>
+        </div>
+
+        <div class="tfa-code-inputs" id="tfaVerifyInputs">
+          <input type="text" maxlength="1" inputmode="numeric" data-index="0" aria-label="Digit 1">
+          <input type="text" maxlength="1" inputmode="numeric" data-index="1" aria-label="Digit 2">
+          <input type="text" maxlength="1" inputmode="numeric" data-index="2" aria-label="Digit 3">
+          <input type="text" maxlength="1" inputmode="numeric" data-index="3" aria-label="Digit 4">
+          <input type="text" maxlength="1" inputmode="numeric" data-index="4" aria-label="Digit 5">
+          <input type="text" maxlength="1" inputmode="numeric" data-index="5" aria-label="Digit 6">
+        </div>
+
+        <button class="btn btn-primary" id="tfaVerifyBtn" style="margin-top:8px;">
+          <span class="spinner"></span>
+          <span class="btn-text">Verify</span>
+        </button>
+
+        <p style="font-size:0.75rem; color:var(--fg-muted); margin-top:16px;">
+          Demo code: <span style="color:var(--accent); font-family:'JetBrains Mono',monospace;" id="demoCodeVerify">483921</span>
+        </p>
+
+        <button class="btn-ghost" style="margin-top:12px;" onclick="showView('loginView')">
+          <i class="fas fa-arrow-left"></i> Back to login
+        </button>
+      </div>
+    </div>
+
+    <!-- DASHBOARD VIEW -->
+    <div class="view dashboard" id="dashboardView">
+      <div class="dash-header">
+        <div class="dash-user">
+          <div class="dash-avatar" id="dashAvatar">J</div>
+          <div>
+            <div class="dash-name" id="dashName">John Doe</div>
+            <div class="dash-email" id="dashEmail">john@example.com</div>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+          <div class="session-timer" id="sessionTimer">
+            <i class="fas fa-clock"></i>
+            <span id="sessionTime">30:00</span>
+          </div>
+          <button class="btn btn-danger" onclick="logout()" style="padding:10px 18px; font-size:0.82rem;">
+            <i class="fas fa-right-from-bracket"></i> Logout
+          </button>
+        </div>
+      </div>
+
+      <div class="dash-grid">
+        <div class="stat-card">
+          <div class="stat-icon green"><i class="fas fa-shield-halved"></i></div>
+          <div class="stat-value" id="statSecurity">92%</div>
+          <div class="stat-label">Security Score</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon yellow"><i class="fas fa-clock-rotate-left"></i></div>
+          <div class="stat-value" id="statSessions">1</div>
+          <div class="stat-label">Active Sessions</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green"><i class="fas fa-fingerprint"></i></div>
+          <div class="stat-value" id="stat2FA">ON</div>
+          <div class="stat-label">Two-Factor Auth</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon red"><i class="fas fa-ban"></i></div>
+          <div class="stat-value" id="statBlocked">0</div>
+          <div class="stat-label">Blocked Attempts</div>
+        </div>
+      </div>
+
+      <div class="security-panel">
+        <h3><i class="fas fa-gear"></i> Security Settings</h3>
+        <div class="security-item">
+          <div class="security-item-left">
+            <i class="fas fa-key"></i>
+            <span class="security-item-label">Password Hashing</span>
+          </div>
+          <span class="security-item-value active">SHA-256 + Salt</span>
+        </div>
+        <div class="security-item">
+          <div class="security-item-left">
+            <i class="fas fa-shield-virus"></i>
+            <span class="security-item-label">SQL Injection Guard</span>
+          </div>
+          <span class="security-item-value active">Active</span>
+        </div>
+        <div class="security-item">
+          <div class="security-item-left">
+            <i class="fas fa-fingerprint"></i>
+            <span class="security-item-label">Two-Factor Auth</span>
+          </div>
+          <div class="toggle-switch" id="tfaToggle" role="switch" aria-label="Toggle 2FA" tabindex="0"></div>
+        </div>
+        <div class="security-item">
+          <div class="security-item-left">
+            <i class="fas fa-clock"></i>
+            <span class="security-item-label">Session Timeout</span>
+          </div>
+          <span class="security-item-value">30 min</span>
+        </div>
+        <div class="security-item">
+          <div class="security-item-left">
+            <i class="fas fa-broom"></i>
+            <span class="security-item-label">Input Sanitization</span>
+          </div>
+          <span class="security-item-value active">Enabled</span>
+        </div>
+      </div>
+
+      <div class="security-panel">
+        <h3><i class="fas fa-list-check"></i> Activity Log</h3>
+        <div class="activity-log" id="activityLog"></div>
+      </div>
+
+      <button class="btn btn-secondary" style="width:100%; margin-top:8px;" onclick="changePassword()">
+        <i class="fas fa-key"></i> Change Password
+      </button>
+    </div>
+
+    <!-- CHANGE PASSWORD VIEW -->
+    <div class="view" id="changePwView">
+      <div class="card">
+        <div class="logo-area">
+          <div class="logo-icon"><i class="fas fa-key"></i></div>
+          <div class="logo-title">Change Password</div>
+          <div class="logo-subtitle">Update your credentials securely</div>
+        </div>
+
+        <form id="changePwForm" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="cpCurrent">Current Password</label>
+            <div class="input-wrap">
+              <i class="fas fa-lock field-icon"></i>
+              <input type="password" id="cpCurrent" placeholder="Enter current password" required>
+              <button type="button" class="toggle-pw" data-target="cpCurrent" aria-label="Toggle password visibility"><i class="fas fa-eye"></i></button>
+            </div>
+            <div class="field-error" id="cpCurrentError"><i class="fas fa-exclamation-circle"></i> <span></span></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="cpNew">New Password</label>
+            <div class="input-wrap">
+              <i class="fas fa-key field-icon"></i>
+              <input type="password" id="cpNew" placeholder="Min 8 characters" required>
+              <button type="button" class="toggle-pw" data-target="cpNew" aria-label="Toggle password visibility"><i class="fas fa-eye"></i></button>
+            </div>
+            <div class="pw-strength" id="cpPwStrength">
+              <div class="pw-strength-bar"><div class="pw-strength-fill" id="cpPwStrengthFill"></div></div>
+              <div class="pw-strength-label" id="cpPwStrengthLabel"></div>
+            </div>
+            <div class="field-error" id="cpNewError"><i class="fas fa-exclamation-circle"></i> <span></span></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="cpConfirm">Confirm New Password</label>
+            <div class="input-wrap">
+              <i class="fas fa-lock field-icon"></i>
+              <input type="password" id="cpConfirm" placeholder="Re-enter new password" required>
+              <button type="button" class="toggle-pw" data-target="cpConfirm" aria-label="Toggle password visibility"><i class="fas fa-eye"></i></button>
+            </div>
+            <div class="field-error" id="cpConfirmError"><i class="fas fa-exclamation-circle"></i> <span></span></div>
+          </div>
+
+          <button type="submit" class="btn btn-primary" id="changePwBtn">
+            <span class="spinner"></span>
+            <span class="btn-text">Update Password</span>
+          </button>
+        </form>
+
+        <button class="btn-ghost" style="margin-top:16px;" onclick="showView('dashboardView')">
+          <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ========================================
+  // Secure Login System - Core Logic
+  // ========================================
+
+  // Database simulation (localStorage)
+  const DB_KEY = 'secure_login_db';
+  const SESSION_KEY = 'secure_login_session';
+  const LOG_KEY = 'secure_login_log';
+
+  function getDB() {
+    try { return JSON.parse(localStorage.getItem(DB_KEY)) || {}; }
+    catch { return {}; }
+  }
+  function saveDB(db) { localStorage.setItem(DB_KEY, JSON.stringify(db)); }
+  function getSession() {
+    try { return JSON.parse(sessionStorage.getItem(SESSION_KEY)); }
+    catch { return null; }
+  }
+  function saveSession(s) { sessionStorage.setItem(SESSION_KEY, JSON.stringify(s)); }
+  function clearSession() { sessionStorage.removeItem(SESSION_KEY); }
+
+  // ---- Password Hashing (SHA-256 + simulated bcrypt salt rounds) ----
+  async function hashPassword(password) {
+    // Generate random salt
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const saltHex = Array.from(salt).map(b => b.toString(16).padStart(2, '0')).join('');
+
+    // Simulate bcrypt rounds with multiple SHA-256 iterations
+    let hash = password + saltHex;
+    const rounds = 10; // Simulating bcrypt cost factor
+    for (let i = 0; i < rounds; i++) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(hash + i);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      hash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    return `$bcrypt$v=2$rounds=${rounds}$salt=${saltHex}$hash=${hash}`;
+  }
+
+  async function verifyPassword(password, storedHash) {
+    // Parse stored hash
+    const match = storedHash.match(/^\$bcrypt\$v=2\$rounds=(\d+)\$salt=([a-f0-9]+)\$hash=([a-f0-9]+)$/);
+    if (!match) return false;
+
+    const rounds = parseInt(match[1]);
+    const saltHex = match[2];
+    const expectedHash = match[3];
+
+    // Re-derive hash with same salt and rounds
+    let hash = password + saltHex;
+    for (let i = 0; i < rounds; i++) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(hash + i);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      hash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    // Constant-time comparison to prevent timing attacks
+    let result = 0;
+    for (let i = 0; i < expectedHash.length; i++) {
+      result |= expectedHash.charCodeAt(i) ^ hash.charCodeAt(i);
+    }
+    return result === 0;
+  }
+
+  // ---- Input Sanitization (SQL injection prevention) ----
+  function sanitizeInput(input) {
+    let sanitized = input;
+    let wasSanitized = false;
+    const patterns = [
+      { regex: /['"`;]/g, msg: 'Quotes/semicolons removed' },
+      { regex: /\b(SELECT|INSERT|UPDATE|DELETE|DROP|UNION|ALTER|CREATE|EXEC|EXECUTE)\b/gi, msg: 'SQL keywords removed' },
+      { regex: /--/g, msg: 'SQL comment removed' },
+      { regex: /\/\*|\*\//g, msg: 'SQL block comment removed' },
+      { regex: /<script[^>]*>[\s\S]*?<\/script>/gi, msg: 'Script tag removed' },
+      { regex: /<[^>]+on\w+\s*=/gi, msg: 'Event handler removed' },
+      { regex: /javascript\s*:/gi, msg: 'JS protocol removed' },
+    ];
+
+    for (const p of patterns) {
+      if (p.regex.test(sanitized)) {
+        sanitized = sanitized.replace(p.regex, '');
+        wasSanitized = true;
+      }
+    }
+
+    // Trim and collapse whitespace
+    sanitized = sanitized.replace(/\s+/g, ' ').trim();
+    return { sanitized, wasSanitized, original: input };
+  }
+
+  function validateEmail(email) {
+    const re = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+    return re.test(email);
+  }
+
+  function validatePasswordStrength(pw) {
+    let score = 0;
+    const checks = {
+      length: pw.length >= 8,
+      uppercase: /[A-Z]/.test(pw),
+      lowercase: /[a-z]/.test(pw),
+      numbers: /\d/.test(pw),
+      special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pw),
+      longEnough: pw.length >= 12,
+    };
+    Object.values(checks).forEach(v => { if (v) score++; });
+
+    let label, color, pct;
+    if (score <= 2) { label = 'Weak'; color = '#ff4d6a'; pct = 25; }
+    else if (score <= 3) { label = 'Fair'; color = '#ffb84d'; pct = 50; }
+    else if (score <= 4) { label = 'Good'; color = '#4da6ff'; pct = 75; }
+    else { label = 'Strong'; color = '#00e68a'; pct = 100; }
+
+    return { score, label, color, pct, checks };
+  }
+
+  // ---- Toast Notification System ----
+  function showToast(message, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    const icons = { success: 'fa-circle-check', error: 'fa-circle-xmark', info: 'fa-circle-info', warning: 'fa-triangle-exclamation' };
+    toast.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i> <span>${message}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3600);
+  }
+
+  // ---- View Navigation ----
+  function showView(viewId) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    const target = document.getElementById(viewId);
+    if (target) {
+      target.classList.add('active');
+      // Focus first input in the view
+      setTimeout(() => {
+        const firstInput = target.querySelector('input[type="text"], input[type="email"], input[type="password"]');
+        if (firstInput) firstInput.focus();
+      }, 100);
+    }
+  }
+
+  // ---- Field Error Helpers ----
+  function showFieldError(id, msg) {
+    const el = document.getElementById(id);
+    el.querySelector('span').textContent = msg;
+    el.classList.add('visible');
+    // Mark input
+    const input = el.previousElementSibling?.querySelector?.('input') || el.parentElement.querySelector('input');
+    if (input) input.classList.add('error');
+  }
+  function clearFieldError(id) {
+    const el = document.getElementById(id);
+    el.classList.remove('visible');
+    const input = el.parentElement.querySelector('input');
+    if (input) input.classList.remove('error');
+  }
+  function showSanitizedNote(id, msg) {
+    const el = document.getElementById(id);
+    el.querySelector('span').textContent = msg;
+    el.classList.add('visible');
+  }
+  function clearSanitizedNote(id) {
+    document.getElementById(id).classList.remove('visible');
+  }
+
+  // ---- Password Strength UI ----
+  function updatePwStrength(pw, fillId, labelId, strengthId) {
+    const fill = document.getElementById(fillId);
+    const label = document.getElementById(labelId);
+    const container = document.getElementById(strengthId);
+
+    if (!pw) { container.classList.remove('visible'); return; }
+    container.classList.add('visible');
+
+    const result = validatePasswordStrength(pw);
+    fill.style.width = result.pct + '%';
+    fill.style.background = result.color;
+    label.textContent = result.label;
+    label.style.color = result.color;
+    return result;
+  }
+
+  // ---- Password Toggle ----
+  document.querySelectorAll('.toggle-pw').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.target);
+      const icon = btn.querySelector('i');
+      if (target.type === 'password') {
+        target.type = 'text';
+        icon.classList.replace('fa-eye', 'fa-eye-slash');
+      } else {
+        target.type = 'password';
+        icon.classList.replace('fa-eye-slash', 'fa-eye');
+      }
+    });
+  });
+
+  // ---- 2FA Code Input Handling ----
+  function setupCodeInputs(containerId) {
+    const container = document.getElementById(containerId);
+    const inputs = container.querySelectorAll('input');
+    inputs.forEach((input, idx) => {
+      input.addEventListener('input', (e) => {
+        const val = e.target.value.replace(/\D/g, '');
+        e.target.value = val.slice(0, 1);
+        if (val && idx < inputs.length - 1) inputs[idx + 1].focus();
+      });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !input.value && idx > 0) inputs[idx - 1].focus();
+      });
+      input.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const paste = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 6);
+        paste.split('').forEach((ch, i) => {
+          if (inputs[i]) inputs[i].value = ch;
+        });
+        if (paste.length > 0) inputs[Math.min(paste.length, inputs.length) - 1].focus();
+      });
+    });
+    return inputs;
+  }
+
+  function getCodeFromInputs(inputs) {
+    return Array.from(inputs).map(i => i.value).join('');
+  }
+
+  setupCodeInputs('tfaSetupInputs');
+  setupCodeInputs('tfaVerifyInputs');
+
+  // ---- Generate Demo 2FA Code ----
+  function generateDemoCode() {
+    return String(Math.floor(100000 + Math.random() * 900000));
+  }
+
+  let currentDemoCode = generateDemoCode();
+  document.getElementById('demoCode').textContent = currentDemoCode;
+  document.getElementById('demoCodeVerify').textContent = currentDemoCode;
+
+  // ---- Generate QR Code (visual simulation) ----
+  function drawQRCode(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    const ctx = canvas.getContext('2d');
+    const size = 136;
+    const cellSize = 4;
+    const modules = Math.floor(size / cellSize);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, size, size);
+    ctx.fillStyle = '#000000';
+
+    // Draw finder patterns (3 corners)
+    function drawFinder(x, y) {
+      // Outer border
+      for (let i = 0; i < 7; i++) {
+        for (let j = 0; j < 7; j++) {
+          if (i === 0 || i === 6 || j === 0 || j === 6 || (i >= 2 && i <= 4 && j >= 2 && j <= 4)) {
+            ctx.fillRect((x + i) * cellSize, (y + j) * cellSize, cellSize, cellSize);
+          }
+        }
+      }
+    }
+    drawFinder(1, 1);
+    drawFinder(modules - 9, 1);
+    drawFinder(1, modules - 9);
+
+    // Random data modules
+    const seed = currentDemoCode.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    let rng = seed;
+    function nextRand() { rng = (rng * 1103515245 + 12345) & 0x7fffffff; return rng; }
+
+    for (let i = 0; i < modules; i++) {
+      for (let j = 0; j < modules; j++) {
+        // Skip finder pattern areas
+        if ((i < 10 && j < 10) || (i > modules - 11 && j < 10) || (i < 10 && j > modules - 11)) continue;
+        if (nextRand() % 3 === 0) {
+          ctx.fillRect(i * cellSize, j * cellSize, cellSize, cellSize);
+        }
+      }
+    }
+  }
+  drawQRCode('qrCanvas');
+
+  // ---- Activity Log ----
+  function addLog(text, type = 'green') {
+    const logs = JSON.parse(localStorage.getItem(LOG_KEY) || '[]');
+    const now = new Date();
+    const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    logs.unshift({ text, type, time, ts: now.getTime() });
+    // Keep last 20
+    if (logs.length > 20) logs.length = 20;
+    localStorage.setItem(LOG_KEY, JSON.stringify(logs));
+    renderLogs();
+  }
+
+  function renderLogs() {
+    const container = document.getElementById('activityLog');
+    const logs = JSON.parse(localStorage.getItem(LOG_KEY) || '[]');
+    if (logs.length === 0) {
+      container.innerHTML = '<p style="color:var(--fg-muted); font-size:0.8rem; text-align:center; padding:20px;">No activity yet</p>';
+      return;
+    }
+    container.innerHTML = logs.map(l => `
+      <div class="log-entry">
+        <div class="log-dot ${l.type}"></div>
+        <div class="log-text">${l.text}</div>
+        <div class="log-time">${l.time}</div>
+      </div>
+    `).join('');
+  }
+
+  // ---- Session Timer ----
+  let sessionInterval = null;
+  const SESSION_DURATION = 30 * 60; // 30 minutes in seconds
+
+  function startSessionTimer() {
+    const session = getSession();
+    if (!session) return;
+
+    let remaining = session.expiresAt - Date.now();
+    if (remaining <= 0) { logout('Session expired'); return; }
+
+    updateTimerDisplay(remaining);
+
+    sessionInterval = setInterval(() => {
+      remaining -= 1000;
+      if (remaining <= 0) {
+        clearInterval(sessionInterval);
+        logout('Session expired due to inactivity');
+        return;
+      }
+      updateTimerDisplay(remaining);
+    }, 1000);
+  }
+
+  function updateTimerDisplay(ms) {
+    const totalSec = Math.max(0, Math.ceil(ms / 1000));
+    const min = Math.floor(totalSec / 60);
+    const sec = totalSec % 60;
+    const display = `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+    const el = document.getElementById('sessionTime');
+    const timer = document.getElementById('sessionTimer');
+    el.textContent = display;
+
+    timer.classList.remove('warning', 'danger');
+    if (totalSec < 60) timer.classList.add('danger');
+    else if (totalSec < 300) timer.classList.add('warning');
+  }
+
+  // ---- Registration ----
+  document.getElementById('regPassword').addEventListener('input', function() {
+    const result = updatePwStrength(this.value, 'pwStrengthFill', 'pwStrengthLabel', 'pwStrength');
+
+    // Show hash visualization
+    const hashDisplay = document.getElementById('hashDisplay');
+    if (this.value.length >= 4) {
+      hashPassword(this.value).then(hash => {
+        const short = hash.substring(0, 40) + '...';
+        hashDisplay.innerHTML = `<span>$bcrypt$</span>v=2$rounds=10$salt=<span>${hash.split('salt=')[1]?.split('$')[0] || ''}</span>$hash=<span>${hash.split('hash=')[1]?.substring(0, 20) || ''}</span>...`;
+        hashDisplay.classList.add('visible');
+      });
+    } else {
+      hashDisplay.classList.remove('visible');
+    }
+  });
+
+  document.getElementById('cpNew').addEventListener('input', function() {
+    updatePwStrength(this.value, 'cpPwStrengthFill', 'cpPwStrengthLabel', 'cpPwStrength');
+  });
+
+  // Sanitization live feedback
+  ['regName', 'regEmail', 'loginEmail'].forEach(id => {
+    const input = document.getElementById(id);
+    const sanId = id + 'Sanitized';
+    input.addEventListener('blur', function() {
+      const { sanitized, wasSanitized, original } = sanitizeInput(this.value);
+      if (wasSanitized && original !== sanitized) {
+        this.value = sanitized;
+        showSanitizedNote(sanId, `Input sanitized: potentially dangerous characters removed`);
+      } else {
+        clearSanitizedNote(sanId);
+      }
+    });
+  });
+
+  document.getElementById('registerForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    let valid = true;
+
+    // Clear errors
+    ['regNameError', 'regEmailError', 'regPasswordError', 'regConfirmError'].forEach(clearFieldError);
+    ['regNameSanitized', 'regEmailSanitized'].forEach(clearSanitizedNote);
+
+    const nameRaw = document.getElementById('regName').value;
+    const emailRaw = document.getElementById('regEmail').value;
+    const password = document.getElementById('regPassword').value;
+    const confirm = document.getElementById('regConfirm').value;
+    const enable2FA = document.getElementById('enable2FA').checked;
+
+    // Sanitize
+    const { sanitized: name, wasSanitized: nameSan } = sanitizeInput(nameRaw);
+    const { sanitized: email, wasSanitized: emailSan } = sanitizeInput(emailRaw);
+
+    if (nameSan) {
+      document.getElementById('regName').value = name;
+      showSanitizedNote('regNameSanitized', 'Dangerous characters removed from name');
+    }
+    if (emailSan) {
+      document.getElementById('regEmail').value = email;
+      showSanitizedNote('regEmailSanitized', 'Dangerous characters removed from email');
+    }
+
+    // Validate name
+    if (!name || name.length < 2) {
+      showFieldError('regNameError', 'Name must be at least 2 characters');
+      valid = false;
+    }
+
+    // Validate email
+    if (!email) {
+      showFieldError('regEmailError', 'Email is required');
+      valid = false;
+    } else if (!validateEmail(email)) {
+      showFieldError('regEmailError', 'Please enter a valid email address');
+      valid = false;
+    }
+
+    // Validate password
+    if (!password) {
+      showFieldError('regPasswordError', 'Password is required');
+      valid = false;
+    } else if (password.length < 8) {
+      showFieldError('regPasswordError', 'Password must be at least 8 characters');
+      valid = false;
+    } else {
+      const strength = validatePasswordStrength(password);
+      if (strength.score <= 2) {
+        showFieldError('regPasswordError', 'Password is too weak. Add uppercase, numbers, and special characters');
+        valid = false;
+      }
+    }
+
+    // Validate confirm
+    if (password !== confirm) {
+      showFieldError('regConfirmError', 'Passwords do not match');
+      valid = false;
+    }
+
+    if (!valid) return;
+
+    // Check if email exists
+    const db = getDB();
+    if (db[email]) {
+      showFieldError('regEmailError', 'An account with this email already exists');
+      return;
+    }
+
+    // Hash password
+    const btn = document.getElementById('registerBtn');
+    btn.classList.add('loading');
+    btn.disabled = true;
+
+    try {
+      const hashedPw = await hashPassword(password);
+
+      // Store user
+      db[email] = {
+        name,
+        email,
+        passwordHash: hashedPw,
+        has2FA: enable2FA,
+        createdAt: Date.now(),
+        loginCount: 0,
+        blockedAttempts: 0,
+      };
+      saveDB(db);
+
+      addLog(`<strong>${name}</strong> account created`, 'green');
+      showToast('Account created successfully! Your password has been securely hashed.', 'success');
+
+      if (enable2FA) {
+        // Show 2FA setup
+        currentDemoCode = generateDemoCode();
+        document.getElementById('demoCode').textContent = currentDemoCode;
+        drawQRCode('qrCanvas');
+        // Generate new secret
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+        let secret = '';
+        for (let i = 0; i < 16; i++) secret += chars[Math.floor(Math.random() * chars.length)];
+        document.getElementById('tfaSecret').textContent = secret.match(/.{4}/g).join(' ');
+        showView('tfaSetupView');
+      } else {
+        showView('loginView');
+      }
+    } catch (err) {
+      showToast('Registration failed: ' + err.message, 'error');
+    } finally {
+      btn.classList.remove('loading');
+      btn.disabled = false;
+    }
+  });
+
+  // ---- 2FA Setup Verification ----
+  document.getElementById('tfaSetupBtn').addEventListener('click', async function() {
+    const inputs = document.getElementById('tfaSetupInputs').querySelectorAll('input');
+    const code = getCodeFromInputs(inputs);
+
+    if (code.length !== 6) {
+      showToast('Please enter the complete 6-digit code', 'warning');
+      return;
+    }
+
+    const btn = this;
+    btn.classList.add('loading');
+    btn.disabled = true;
+
+    // Simulate verification delay
+    await new Promise(r => setTimeout(r, 1200));
+
+    if (code === currentDemoCode) {
+      // Mark 2FA as set up
+      const db = getDB();
+      const session = getSession();
+      // Find the user we just created (most recent)
+      const users = Object.entries(db);
+      if (users.length > 0) {
+        const lastUser = users[users.length - 1];
+        db[lastUser[0]].has2FA = true;
+        db[lastUser[0]].tfaEnabled = true;
+        saveDB(db);
+      }
+
+      addLog('Two-factor authentication enabled', 'green');
+      showToast('2FA enabled successfully! You can now sign in.', 'success');
+      showView('loginView');
+    } else {
+      showToast('Invalid code. Please try again.', 'error');
+      inputs.forEach(i => { i.value = ''; });
+      inputs[0].focus();
+    }
+
+    btn.classList.remove('loading');
+    btn.disabled = false;
+  });
+
+  // ---- Login ----
+  document.getElementById('loginForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    let valid = true;
+
+    ['loginEmailError', 'loginPasswordError'].forEach(clearFieldError);
+    clearSanitizedNote('loginEmailSanitized');
+
+    const emailRaw = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+
+    // Sanitize
+    const { sanitized: email, wasSanitized: emailSan } = sanitizeInput(emailRaw);
+    if (emailSan) {
+      document.getElementById('loginEmail').value = email;
+      showSanitizedNote('loginEmailSanitized', 'Dangerous characters removed from email');
+    }
+
+    if (!email) { showFieldError('loginEmailError', 'Email is required'); valid = false; }
+    else if (!validateEmail(email)) { showFieldError('loginEmailError', 'Invalid email format'); valid = false; }
+    if (!password) { showFieldError('loginPasswordError', 'Password is required'); valid = false; }
+
+    if (!valid) return;
+
+    const btn = document.getElementById('loginBtn');
+    btn.classList.add('loading');
+    btn.disabled = true;
+
+    try {
+      const db = getDB();
+      const user = db[email];
+
+      if (!user) {
+        showFieldError('loginEmailError', 'No account found with this email');
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        return;
+      }
+
+      // Rate limiting check (block after 5 failed attempts)
+      if (user.blockedAttempts >= 5) {
+        const lastAttempt = user.lastFailedAt || 0;
+        const cooldown = 5 * 60 * 1000; // 5 min cooldown
+        if (Date.now() - lastAttempt < cooldown) {
+          const remaining = Math.ceil((cooldown - (Date.now() - lastAttempt)) / 60000);
+          showFieldError('loginPasswordError', `Account temporarily locked. Try again in ${remaining} min.`);
+          addLog(`Failed login attempt for <strong>${email}</strong> (locked)`, 'red');
+          btn.classList.remove('loading');
+          btn.disabled = false;
+          return;
+        } else {
+          user.blockedAttempts = 0;
+          saveDB(db);
+        }
+      }
+
+      // Verify password
+      const match = await verifyPassword(password, user.passwordHash);
+
+      await new Promise(r => setTimeout(r, 800)); // Simulate server delay
+
+      if (!match) {
+        user.blockedAttempts = (user.blockedAttempts || 0) + 1;
+        user.lastFailedAt = Date.now();
+        saveDB(db);
+        showFieldError('loginPasswordError', `Invalid password. ${5 - user.blockedAttempts} attempts remaining.`);
+        addLog(`Failed login for <strong>${user.name}</strong> (${user.blockedAttempts}/5)`, 'red');
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        return;
+      }
+
+      // Successful login
+      user.blockedAttempts = 0;
+      user.loginCount = (user.loginCount || 0) + 1;
+      user.lastLogin = Date.now();
+      saveDB(db);
+
+      addLog(`<strong>${user.name}</strong> logged in successfully`, 'green');
+
+      // Check if 2FA is required
+      if (user.has2FA || user.tfaEnabled) {
+        currentDemoCode = generateDemoCode();
+        document.getElementById('demoCodeVerify').textContent = currentDemoCode;
+        showView('tfaVerifyView');
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        return;
+      }
+
+      // Create session
+      createSession(user);
+      enterDashboard(user);
+
+    } catch (err) {
+      showToast('Login error: ' + err.message, 'error');
+    } finally {
+      btn.classList.remove('loading');
+      btn.disabled = false;
+    }
+  });
+
+  // ---- 2FA Verification on Login ----
+  document.getElementById('tfaVerifyBtn').addEventListener('click', async function() {
+    const inputs = document.getElementById('tfaVerifyInputs').querySelectorAll('input');
+    const code = getCodeFromInputs(inputs);
+
+    if (code.length !== 6) {
+      showToast('Please enter the complete 6-digit code', 'warning');
+      return;
+    }
+
+    const btn = this;
+    btn.classList.add('loading');
+    btn.disabled = true;
+
+    await new Promise(r => setTimeout(r, 1000));
+
+    if (code === currentDemoCode) {
+      // Find the user (from the email in login form)
+      const email = document.getElementById('loginEmail').value;
+      const db = getDB();
+      const user = db[email];
+      if (user) {
+        addLog(`<strong>${user.name}</strong> 2FA verified`, 'green');
+        createSession(user);
+        enterDashboard(user);
+      }
+    } else {
+      showToast('Invalid authentication code', 'error');
+      inputs.forEach(i => { i.value = ''; });
+      inputs[0].focus();
+    }
+
+    btn.classList.remove('loading');
+    btn.disabled = false;
+  });
+
+  // ---- Session Management ----
+  function createSession(user) {
+    const session = {
+      email: user.email,
+      name: user.name,
+      has2FA: user.has2FA || user.tfaEnabled,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + SESSION_DURATION * 1000,
+      token: crypto.randomUUID(),
+    };
+    saveSession(session);
+  }
+
+  function enterDashboard(user) {
+    showToast(`Welcome back, ${user.name}!`, 'success');
+
+    // Update dashboard UI
+    document.getElementById('dashAvatar').textContent = user.name.charAt(0).toUpperCase();
+    document.getElementById('dashName').textContent = user.name;
+    document.getElementById('dashEmail').textContent = user.email;
+    document.getElementById('statSessions').textContent = '1';
+    document.getElementById('stat2FA').textContent = (user.has2FA || user.tfaEnabled) ? 'ON' : 'OFF';
+    document.getElementById('stat2FA').style.color = (user.has2FA || user.tfaEnabled) ? 'var(--accent)' : 'var(--fg-muted)';
+    document.getElementById('statBlocked').textContent = user.blockedAttempts || 0;
+
+    // Calculate security score
+    let score = 40; // Base
+    const pwStrength = user.passwordHash ? 25 : 0; // Having a hash = 25
+    score += pwStrength;
+    if (user.has2FA || user.tfaEnabled) score += 25;
+    if (user.loginCount > 1) score += 5;
+    if ((user.blockedAttempts || 0) === 0) score += 5;
+    document.getElementById('statSecurity').textContent = Math.min(score, 100) + '%';
+
+    // 2FA toggle state
+    const tfaToggle = document.getElementById('tfaToggle');
+    if (user.has2FA || user.tfaEnabled) {
+      tfaToggle.classList.add('active');
+    } else {
+      tfaToggle.classList.remove('active');
+    }
+
+    showView('dashboardView');
+    renderLogs();
+    startSessionTimer();
+  }
+
+  // ---- 2FA Toggle on Dashboard ----
+  document.getElementById('tfaToggle').addEventListener('click', async function() {
+    const session = getSession();
+    if (!session) return;
+
+    const db = getDB();
+    const user = db[session.email];
+    if (!user) return;
+
+    const newState = !(user.has2FA || user.tfaEnabled);
+    user.has2FA = newState;
+    user.tfaEnabled = newState;
+    saveDB(db);
+    session.has2FA = newState;
+    saveSession(session);
+
+    this.classList.toggle('active');
+    document.getElementById('stat2FA').textContent = newState ? 'ON' : 'OFF';
+    document.getElementById('stat2FA').style.color = newState ? 'var(--accent)' : 'var(--fg-muted)';
+
+    // Recalculate score
+    let score = 65;
+    if (newState) score += 25;
+    if ((user.blockedAttempts || 0) === 0) score += 5;
+    if (user.loginCount > 1) score += 5;
+    document.getElementById('statSecurity').textContent = Math.min(score, 100) + '%';
+
+    addLog(`2FA ${newState ? 'enabled' : 'disabled'}`, newState ? 'green' : 'yellow');
+    showToast(`Two-factor authentication ${newState ? 'enabled' : 'disabled'}`, newState ? 'success' : 'warning');
+  });
+
+  // Keyboard support for toggle
+  document.getElementById('tfaToggle').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.click(); }
+  });
+
+  // ---- Logout ----
+  function logout(reason) {
+    if (sessionInterval) clearInterval(sessionInterval);
+    clearSession();
+    addLog(reason || 'User logged out', 'yellow');
+    showToast(reason || 'You have been logged out', 'info');
+    showView('loginView');
+    // Clear form fields
+    document.getElementById('loginForm').reset();
+    document.getElementById('loginEmail').value = '';
+    document.getElementById('loginPassword').value = '';
+  }
+
+  // ---- Change Password ----
+  function changePassword() {
+    showView('changePwView');
+    document.getElementById('changePwForm').reset();
+    ['cpCurrentError', 'cpNewError', 'cpConfirmError'].forEach(clearFieldError);
+    document.getElementById('cpPwStrength').classList.remove('visible');
+  }
+
+  document.getElementById('changePwForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    let valid = false;
+
+    ['cpCurrentError', 'cpNewError', 'cpConfirmError'].forEach(clearFieldError);
+
+    const current = document.getElementById('cpCurrent').value;
+    const newPw = document.getElementById('cpNew').value;
+    const confirmPw = document.getElementById('cpConfirm').value;
+    const session = getSession();
+    if (!session) { logout(); return; }
+
+    const db = getDB();
+    const user = db[session.email];
+    if (!user) { logout(); return; }
+
+    // Verify current password
+    const match = await verifyPassword(current, user.passwordHash);
+    if (!match) {
+      showFieldError('cpCurrentError', 'Current password is incorrect');
+      return;
+    }
+
+    if (!newPw || newPw.length < 8) {
+      showFieldError('cpNewError', 'New password must be at least 8 characters');
+      return;
+    }
+
+    const strength = validatePasswordStrength(newPw);
+    if (strength.score <= 2) {
+      showFieldError('cpNewError', 'Password is too weak');
+      return;
+    }
+
+    if (newPw !== confirmPw) {
+      showFieldError('cpConfirmError', 'Passwords do not match');
+      return;
+    }
+
+    if (newPw === current) {
+      showFieldError('cpNewError', 'New password must be different from current');
+      return;
+    }
+
+    const btn = document.getElementById('changePwBtn');
+    btn.classList.add('loading');
+    btn.disabled = true;
+
+    try {
+      const hashedPw = await hashPassword(newPw);
+      user.passwordHash = hashedPw;
+      saveDB(db);
+
+      addLog(`<strong>${user.name}</strong> changed their password`, 'green');
+      showToast('Password updated successfully!', 'success');
+      showView('dashboardView');
+    } catch (err) {
+      showToast('Failed to update password', 'error');
+    } finally {
+      btn.classList.remove('loading');
+      btn.disabled = false;
+    }
+  });
+
+  // ---- Check for Existing Session on Load ----
+  (function init() {
+    const session = getSession();
+    if (session && session.expiresAt > Date.now()) {
+      const db = getDB();
+      const user = db[session.email];
+      if (user) {
+        enterDashboard(user);
+        return;
+      }
+    }
+    clearSession();
+    renderLogs();
+  })();
+</script>
+</body>
+</html>
